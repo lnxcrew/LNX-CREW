@@ -3,7 +3,7 @@
 
 The Node.js TLS library supports client side reuse of TLS sessions when multiple connections to the same server are opened.
 
-Code that wants to use this feature can listen for the 'session' event (https://nodejs.org/api/tls.html#tls_event_session) on a tls.TLSSocket to get notified of newly created TLS sessions. The documentation for this event explicitly mentions that the passed sessions `\"can be used immediately or later\"`.
+Code that wants to use this feature can listen for the `session` event (https://nodejs.org/api/tls.html#tls_event_session) on a `tls.TLSSocket` to get notified of newly created TLS sessions. The documentation for this event explicitly mentions that the passed sessions `\"can be used immediately or later\"`.
 
 The problem with this design is that 'session' events are triggered even if verification of the server certificate hostname in onConnectSecure fails. (https://github.com/nodejs/node/blob/b1d4c13430c92e94920f0c8c9ba1295c075c9e89/lib/_tls_wrap.js#L1502):
 
@@ -25,7 +25,9 @@ if (!verifyError && !this.isSessionReused()) {
 }
 ```
 
-In practice, this means that the immediate reuse described in the API documentation is always insecure and that session caches are at risk of storing insecure sessions. The most important implementation of a session cache is in the https library (https://github.com/nodejs/node/blob/b1d4c13430c92e94920f0c8c9ba1295c075c9e89/lib/https.js#L130): New sessions are stored in the cache when the \u2018session' event is triggered and are evicted once a tls socket is closed with an error. 
+In practice, this means that the immediate reuse described in the API documentation is always insecure and that session caches are at risk of storing insecure sessions. 
+The most important implementation of a session cache is in the https library (https://github.com/nodejs/node/blob/b1d4c13430c92e94920f0c8c9ba1295c075c9e89/lib/https.js#L130): N
+ew sessions are stored in the cache when the \u2018session' event is triggered and are evicted once a tls socket is closed with an error. 
 ```java
  if (options._agentKey) {
     // Cache new session for reuse
@@ -40,10 +42,14 @@ In practice, this means that the immediate reuse described in the API documentat
     });
   }
 ```
-    This opens a small race window where an invalid session can be used by other HTTPs requests to the same host. The attached proof-of-concept wins the race reliably against a local server using a setImmediate() callback, but there are probably other ways this could be exploited in real world applications. I also did not fully investigate if there is a way to trigger the socket \u2018close' event with no error which would skip the session eviction and turn this into a 100% reliable bypass.
+    This opens a small race window where an invalid session can be used by other HTTPs requests to the same host. 
+    The attached proof-of-concept wins the race reliably against a local server using a setImmediate() callback, 
+    but there are probably other ways this could be exploited in real world applications. 
+    I also did not fully investigate if there is a way to trigger the socket \u2018close' 
+    event with no error which would skip the session eviction and turn this into a 100% reliable bypass.
 
-
-    The POC requires a target server with a valid CA signed certificate (for an arbitrary hostname) and support for TLS resumption. I've attached a minimal golang https server that worked for me.
+    The POC requires a target server with a valid CA signed certificate (for an arbitrary hostname) 
+    and support for TLS resumption. I've attached a minimal golang https server that worked for me.
 
 ## Command!
 ```bash
